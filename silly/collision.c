@@ -1,14 +1,14 @@
 #include "raylib.h"
 #include <stdio.h>
 
-void moveX(float amount, Rectangle* player, Rectangle surfaces[]);
+int moveX(float amount, Rectangle* player, Rectangle surfaces[]);
 void moveY(float* amount, Rectangle* player, Rectangle surfaces[], int* jumped, int* onLand);
 int collision(Rectangle r, Rectangle surfaces[]);
 
 int main(void) {
     const int screenWidth = 800;
     const int screenHeight = 450;
-    const int horizontalSpeed = 12;
+    int horizontalSpeed = 12;
     const int jumpStrength = 17;
     int jumped = 0;
     int onLand = 0;
@@ -19,29 +19,41 @@ int main(void) {
 
     Rectangle floor = {0, screenHeight / 2 + 150, screenWidth, screenHeight - (screenHeight / 2 + 150)};
     Rectangle wall = {screenWidth / 2 - 100, floor.y - 100, 200, 100};
+    Rectangle rightWall = {screenWidth - 50, 0, 50, screenHeight};
     Rectangle platform = {screenWidth / 2 - 40, wall.y - 100, 80, 20};
 
-    Rectangle surfaces[] = {floor, wall, platform};
+    Rectangle surfaces[] = {floor, wall, rightWall, platform};
 
     Rectangle player = {0, floor.y - 40, 40, 40};
 
+    int invertX = 0;
     while (!WindowShouldClose())
     {
         onLand = 1;
+
+        if(invertX == 1) horizontalSpeed = -horizontalSpeed;
+        if(invertX > 0) invertX--;
 
         // player movement
         int move = 0;
         move += horizontalSpeed * IsKeyDown(KEY_D);
         move -= horizontalSpeed * IsKeyDown(KEY_A);
-        moveX(move, &player, surfaces);
+        int onWall = moveX(move, &player, surfaces);
 
-        // player jump
+        // floor jump
         if(IsKeyPressed(KEY_SPACE) && !jumped) {
             verticalAcceleration -= jumpStrength;
             jumped = 1;
             onLand = 0;
         };
         moveY(&verticalAcceleration, &player, surfaces, &jumped, &onLand);
+
+        // wall jump
+        if(IsKeyPressed(KEY_SPACE) && onWall && !onLand && verticalAcceleration > -(jumpStrength / 2)){
+            invertX = 15;
+            horizontalSpeed = -horizontalSpeed;
+            verticalAcceleration -= jumpStrength * 1.3f;
+        };
 
         // gravity
         if(verticalAcceleration != 0 || !onLand) {
@@ -52,6 +64,7 @@ int main(void) {
             ClearBackground(BLACK);
             DrawRectangleRec(floor, DARKGRAY);
             DrawRectangleRec(wall, DARKGRAY);
+            DrawRectangleRec(rightWall, DARKGRAY);
             DrawRectangleRec(platform, DARKGRAY);
 
             DrawRectangleRec(player, YELLOW);
@@ -62,7 +75,7 @@ int main(void) {
     return 0;
 };
 
-void moveX(float amount, Rectangle* player, Rectangle surfaces[]) {
+int moveX(float amount, Rectangle* player, Rectangle surfaces[]) {
     static float remainder = 0;
     remainder += amount;
     int move = (int)remainder;
@@ -78,10 +91,11 @@ void moveX(float amount, Rectangle* player, Rectangle surfaces[]) {
             } 
             else {
                 player->x -= sign;
-                break;
+                return true;
             };
         };
     };
+    return false;
 };
 
 void moveY(float* amount, Rectangle* player, Rectangle surfaces[], int* jumped, int* onLand) {
@@ -111,7 +125,7 @@ void moveY(float* amount, Rectangle* player, Rectangle surfaces[], int* jumped, 
 };
 
 int collision(Rectangle r, Rectangle surfaces[]){ 
-    for(int i = 0; i < 3; i += 1){
+    for(int i = 0; i < 4; i += 1){
         if(CheckCollisionRecs(r, surfaces[i])) {
             return true;
         };
