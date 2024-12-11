@@ -1,26 +1,17 @@
-#include "raylib.h"
+#include "swody.h"
 #include <stdio.h>
 #include <math.h>
 
-int moveX(float amount, Rectangle* player, Rectangle surfaces[]);
-void moveY(float* amount, Rectangle* player, Rectangle surfaces[], int* jumped, int* onLand);
-int collision(Rectangle r, Rectangle surfaces[]);
+const int screenWidth = 1920;
+const int screenHeight = 1080;
+const int horizontalSpeed = 12;
+const int jumpStrength = 17;
 
 int main(void) {
-    const int screenWidth = 1920;
-    const int screenHeight = 1080;
-    const int horizontalSpeed = 12;
-    const int jumpStrength = 17;
-    int jumped = 0;
-    int onLand = 0;
-    int slowTime = 0;
-    int coyoteTime = 0;
-    Vector2 velocity = {0, 0};
 
-    InitWindow(screenWidth, screenHeight, "Collision");
+    InitWindow(screenWidth, screenHeight, "Swody");
     ToggleFullscreen();
     SetTargetFPS(60);
-
 
     Rectangle floor = {0, screenHeight / 2 + 450, screenWidth, screenHeight / 2};
     Rectangle wall = {screenWidth / 2 - 300, floor.y - 100, 600, 100};
@@ -30,80 +21,91 @@ int main(void) {
 
     Rectangle surfaces[] = {floor, wall, rightWall, leftWall, platform};
 
-    Rectangle player = {50, floor.y - 40, 40, 40};
+    Player player1 = {0};
+    player1.body = (Rectangle){50, floor.y - 40, 40, 40};
+    Input input1 = {KEY_A, KEY_D, KEY_SPACE, KEY_S, 0};
+    Player player2 = {0};
+    player2.body = (Rectangle){screenWidth - 50 - 40, floor.y - 40, 40, 40};
+    Input input2 = {KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, 1};
 
-    while (!WindowShouldClose())
-    {
-        onLand = 1;
+    while (!WindowShouldClose()) {
 
-        // player movement
-        if(slowTime > 0){
-            slowTime--;
-            velocity.x += horizontalSpeed * 0.1f * (IsKeyDown(KEY_D) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT));
-            velocity.x -= horizontalSpeed * 0.1f * (IsKeyDown(KEY_A) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT));
-        } else {
-            velocity.x += horizontalSpeed * 0.8f * (IsKeyDown(KEY_D) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT));
-            velocity.x -= horizontalSpeed * 0.8f * (IsKeyDown(KEY_A) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT));
-        };
-        int direction = (velocity.x > 0) - (velocity.x < 0);
-        if(abs(velocity.x) > horizontalSpeed) {
-            velocity.x = horizontalSpeed * direction;
-        };
-        if(floorf(velocity.x) == 0) {
-            velocity.x = 0;
-        };
-        if(!(IsKeyDown(KEY_D) || IsKeyDown(KEY_A)) && !(IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT))) {
-            if (velocity.x != 0)
-            {
-                velocity.x -= direction;
-            };
-        };
-        int onWall = moveX(velocity.x, &player, surfaces);
-
-        // floor jump
-        if((IsKeyPressed(KEY_SPACE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) && !jumped && (onLand || coyoteTime > 0)) {
-            if(coyoteTime > 0) {
-                velocity.y = 0;
-                coyoteTime = 0;
-            };
-            velocity.y -= jumpStrength;
-            jumped = 1;
-            onLand = 0;
-        };
-        if(coyoteTime > 0) {
-            coyoteTime--;
-        };
-        if(!onLand) {
-            coyoteTime = 2;
-        };
-        moveY(&velocity.y, &player, surfaces, &jumped, &onLand);
-
-        // wall jump
-        if((IsKeyPressed(KEY_SPACE) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) && onWall && !onLand && velocity.y > -(jumpStrength / 2)){
-            slowTime = 20;
-            velocity.x -= direction * horizontalSpeed * 88;
-            velocity.y -= jumpStrength * 1.3f;
-        };
-
-        // gravity
-        if(velocity.y != 0 || !onLand) {
-            velocity.y += 1.3f;
-        };
+        movePlayer(&player1, input1, surfaces);
+        movePlayer(&player2, input2, surfaces);
 
         BeginDrawing(); 
-                ClearBackground(BLACK);
-                DrawRectangleRec(floor, DARKGRAY);
-                DrawRectangleRec(wall, DARKGRAY);
-                DrawRectangleRec(rightWall, DARKGRAY);
-                DrawRectangleRec(leftWall, DARKGRAY);
-                DrawRectangleRec(platform, DARKGRAY);
+            ClearBackground(BLACK);
+            DrawRectangleRec(floor, DARKGRAY);
+            DrawRectangleRec(wall, DARKGRAY);
+            DrawRectangleRec(rightWall, DARKGRAY);
+            DrawRectangleRec(leftWall, DARKGRAY);
+            DrawRectangleRec(platform, DARKGRAY);
 
-                DrawRectangleRec(player, YELLOW);
+            DrawRectangleRec(player1.body, YELLOW);
+            DrawRectangleRec(player2.body, PINK);
         EndDrawing();
     };
 
     CloseWindow();
     return 0;
+};
+
+void movePlayer(Player* player, Input input, Rectangle surfaces[]) {
+    player->onLand = 1;
+
+    // player movement
+    if(player->slowTime > 0){
+        player->slowTime--;
+        player->velocity.x += horizontalSpeed * 0.1f * (IsKeyDown(input.right) || IsGamepadButtonDown(input.gamepad, GAMEPAD_BUTTON_LEFT_FACE_RIGHT));
+        player->velocity.x -= horizontalSpeed * 0.1f * (IsKeyDown(input.left) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT));
+    } else {
+        player->velocity.x += horizontalSpeed * 0.8f * (IsKeyDown(input.right) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT));
+        player->velocity.x -= horizontalSpeed * 0.8f * (IsKeyDown(input.left) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT));
+    };
+    int direction = (player->velocity.x > 0) - (player->velocity.x < 0);
+    if(abs(player->velocity.x) > horizontalSpeed) {
+        player->velocity.x = horizontalSpeed * direction;
+    };
+    if(floorf(player->velocity.x) == 0) {
+        player->velocity.x = 0;
+    };
+    if(!(IsKeyDown(input.right) || IsKeyDown(input.left)) && !(IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_RIGHT) || IsGamepadButtonDown(0, GAMEPAD_BUTTON_LEFT_FACE_LEFT))) {
+        if (player->velocity.x != 0)
+        {
+            player->velocity.x -= direction;
+        };
+    };
+    int onWall = moveX(player->velocity.x, &player->body, surfaces);
+
+    // floor jump
+    if((IsKeyPressed(input.up) || IsGamepadButtonPressed(0, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) && !player->jumped && (player->onLand || player->coyoteTime > 0)) {
+        if(player->coyoteTime > 0) {
+            player->velocity.y = 0;
+            player->coyoteTime = 0;
+        };
+        player->velocity.y -= jumpStrength;
+        player->jumped = 1;
+        player->onLand = 0;
+    };
+    if(player->coyoteTime > 0) {
+        player->coyoteTime--;
+    };
+    if(!player->onLand) {
+        player->coyoteTime = 2;
+    };
+    moveY(&player->velocity.y, &player->body, surfaces, &player->jumped, &player->onLand);
+
+    // wall jump
+    if((IsKeyPressed(input.up) || IsGamepadButtonPressed(input.gamepad, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) && onWall && !player->onLand && player->velocity.y > -(jumpStrength / 2)){
+        player->slowTime = 20;
+        player->velocity.x -= direction * horizontalSpeed * 88;
+        player->velocity.y -= jumpStrength * 1.3f;
+    };
+
+    // gravity
+    if(player->velocity.y != 0 || !player->onLand) {
+        player->velocity.y += 1.3f;
+    };
 };
 
 int moveX(float amount, Rectangle* player, Rectangle surfaces[]) {
